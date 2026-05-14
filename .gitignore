@@ -1,0 +1,5 @@
+downloads/*
+.vscode/*
+__pycache__/*
+links.csv
+music_registry.csv
