@@ -3,3 +3,4 @@ downloads/*
 __pycache__/*
 links.csv
 music_registry.csv
+*.pyc

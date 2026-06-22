@@ -4,7 +4,7 @@ Download audio from YouTube URLs listed in a CSV file using yt-dlp.
 
 Usage:
   1) Edit INPUT_CSV / OUTPUT_DIR / REGISTRY_CSV below
-  2) python download_youtube_audio.py
+  2) python src/download_youtube_audio.py
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ except ImportError:
 # --------------------------
 # User settings (edit these)
 # --------------------------
-PROJECT_ROOT = Path(__file__).resolve().parent
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
 INPUT_CSV = Path("links.csv")
 LINK_COLUMN = "link"
 SONG_NAME_COLUMN = "song_name"
@@ -190,11 +190,7 @@ def registry_file_exists(file_path: str) -> bool:
     return (PROJECT_ROOT / p).exists()
 
 
-def to_relative_path(path: Path) -> str:
-    return str(path.resolve().relative_to(PROJECT_ROOT.resolve()))
-
-
-def process_rows(rows: list[dict[str, str]]) -> tuple[int, int]:
+def process_rows(rows: list[dict[str, str]]) -> dict[str, Any]:
     output_dir = resolve_path(OUTPUT_DIR)
     registry = load_registry(REGISTRY_CSV)
     seen_ids: set[str] = set()
@@ -205,6 +201,7 @@ def process_rows(rows: list[dict[str, str]]) -> tuple[int, int]:
     skipped_existing = 0
     redownloaded_missing = 0
     metadata_failures = 0
+    downloaded_items: list[dict[str, str]] = []
 
     iterator = rows
     if tqdm is not None:
@@ -246,13 +243,15 @@ def process_rows(rows: list[dict[str, str]]) -> tuple[int, int]:
             print(f"Failed download: {url}")
             continue
 
-        rel_path = to_relative_path(downloaded_path)
-        registry[youtube_id] = {
+        abs_path = str(downloaded_path.resolve())
+        registry_row = {
             "youtube_id": youtube_id,
             "song_name": final_song_name,
             "artist": input_artist,
-            "file_path": rel_path,
+            "file_path": abs_path,
         }
+        registry[youtube_id] = registry_row
+        downloaded_items.append(registry_row)
         if existing:
             redownloaded_missing += 1
         else:
@@ -265,7 +264,16 @@ def process_rows(rows: list[dict[str, str]]) -> tuple[int, int]:
     print(f"Skipped existing: {skipped_existing}")
     print(f"Duplicate IDs in input skipped: {duplicates_in_input}")
     print(f"Metadata failures: {metadata_failures}")
-    return failures, len(registry)
+    return {
+        "failures": failures,
+        "registry_count": len(registry),
+        "downloaded_new": downloaded,
+        "redownloaded_missing": redownloaded_missing,
+        "skipped_existing": skipped_existing,
+        "duplicate_ids_in_input": duplicates_in_input,
+        "metadata_failures": metadata_failures,
+        "downloaded_items": downloaded_items,
+    }
 
 
 def main() -> int:
@@ -286,11 +294,11 @@ def main() -> int:
         print("No valid rows found in input CSV.", file=sys.stderr)
         return 2
 
-    failures, registry_count = process_rows(rows)
-    print(f"Registry entries: {registry_count}")
+    summary = process_rows(rows)
+    print(f"Registry entries: {summary['registry_count']}")
     print(f"Registry saved to: {resolve_path(REGISTRY_CSV)}")
-    if failures:
-        print(f"Finished with {failures} failed item(s).")
+    if summary["failures"]:
+        print(f"Finished with {summary['failures']} failed item(s).")
         return 1
 
     print(f"Done. Saved audio files to: {resolve_path(OUTPUT_DIR)}")

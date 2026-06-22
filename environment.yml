@@ -1,0 +1,19 @@
+name: audio_matcher
+channels:
+  - conda-forge
+  - nodefaults
+dependencies:
+  - python=3.11
+  - ffmpeg
+  - ipykernel
+  - jupyterlab
+  - librosa
+  - matplotlib
+  - numpy
+  - pandas
+  - pip
+  - scikit-learn
+  - scipy
+  - pysoundfile
+  - tqdm
+  - yt-dlp
